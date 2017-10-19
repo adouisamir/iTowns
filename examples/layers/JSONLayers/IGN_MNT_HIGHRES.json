@@ -7,7 +7,8 @@
 	"updateStrategy": {
 		"type": 1,
 		"options": {
-			"groups": [11, 14]
+			"groups": [11, 14],
+            "forceLoadingStep": true
 		}
 	},
 	"options": {

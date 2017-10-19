@@ -45,6 +45,14 @@ function initNodeElevationTextureFromParent(node, parent, layer) {
         const coords = node.getCoordsForLayer(layer);
 
         const texture = parent.material.textures[l_ELEVATION][0];
+        const startegyOptions = layer.updateStrategy.options;
+        // Force loading step of group strategy and don't use parent texture, if level is step of group strategy
+        if (startegyOptions && startegyOptions.forceLoadingStep && startegyOptions.groups) {
+            const group = layer.updateStrategy.options.groups;
+            if (!(node.level < group[0] || group.indexOf(node.level) == -1)) {
+                return;
+            }
+        }
         const pitch = coords[0].offsetToParent(parent.material.textures[l_ELEVATION][0].coords);
         const elevation = {
             texture,
