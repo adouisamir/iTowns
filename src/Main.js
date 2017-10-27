@@ -15,6 +15,7 @@ export { ColorLayersOrdering } from './Renderer/ColorLayersOrdering';
 export { default as PointsMaterial } from './Renderer/PointsMaterial';
 export { default as PointCloudProcessing } from './Process/PointCloudProcessing';
 export { default as FlyControls } from './Renderer/ThreeExtended/FlyControls';
+export { default as PanoramaControls } from './Renderer/ThreeExtended/PanoramaControls';
 export { default as FirstPersonControls } from './Renderer/ThreeExtended/FirstPersonControls';
 export { default as PlanarControls } from './Renderer/ThreeExtended/PlanarControls';
 export { default as GeoJSON2Features } from './Renderer/ThreeExtended/GeoJSON2Features';
