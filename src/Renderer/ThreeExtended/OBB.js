@@ -144,8 +144,6 @@ OBB.extentToOBB = function extentToOBB(extent, minHeight = 0, maxHeight = 0) {
 
     // Calcule the center world position with the extent.
     extent.center(tmp.cardinals[8]);
-    const centerWorld = tmp.cardinals[8].as('EPSG:4978', tmp.epsg4978).xyz();
-    tmp.normal.copy(centerWorld).normalize();
 
     const bboxDimension = extent.dimensions(UNIT.RADIAN);
     const phiStart = extent.west(UNIT.RADIAN);
@@ -175,41 +173,55 @@ OBB.extentToOBB = function extentToOBB(extent, minHeight = 0, maxHeight = 0) {
     tmp.cardinals[7]._values[0] = phiStart;
     tmp.cardinals[7]._values[1] = thetaStart + bboxDimension.y * 0.5;
 
-    var cardin3DPlane = [];
+    const cardinalsXYZ = [];
+    const centersLongitude = tmp.cardinals[8].longitude(UNIT.RADIAN);
+    for (var i = 0; i < tmp.cardinals.length; i++) {
+        cardinalsXYZ.push(tmp.cardinals[i].as('EPSG:4978').xyz());
+    }
 
+    return this.cardinalsXYZToOBB(cardinalsXYZ, centersLongitude, true, minHeight, maxHeight);
+};
+
+OBB.cardinalsXYZToOBB = function cardinalsXYZToOBB(cardinals, centerPhi, isEllipsoid, minHeight = 0, maxHeight = 0) {
     tmp.maxV.set(-1000, -1000, -1000);
     tmp.minV.set(1000, 1000, 1000);
-    var halfMaxHeight = 0;
+
+    let halfMaxHeight = 0;
+    tmp.normal.copy(cardinals[8]).normalize();
     tmp.tangentPlaneAtOrigin.set(tmp.normal, 0);
 
     tmp.planeZ.setFromUnitVectors(tmp.normal, tmp.zUp);
     tmp.qRotY.setFromAxisAngle(
-        new THREE.Vector3(0, 0, 1), -tmp.cardinals[8].longitude(UNIT.RADIAN));
+        new THREE.Vector3(0, 0, 1), -centerPhi);
     tmp.qRotY.multiply(tmp.planeZ);
 
-    for (var i = 0; i < tmp.cardinals.length; i++) {
-        tmp.cardinals[i].as('EPSG:4978', tmp.epsg4978).xyz(tmp.cardinal3D);
-        cardin3DPlane.push(tmp.tangentPlaneAtOrigin.projectPoint(tmp.cardinal3D));
-        const d = cardin3DPlane[i].distanceTo(tmp.cardinal3D.sub(centerWorld));
+    let point5InPlaneX;
+    for (let i = 0; i < cardinals.length; i++) {
+        const vec = tmp.tangentPlaneAtOrigin.projectPoint(cardinals[i], tmp.cardinal3D);
+        const d = vec.distanceTo(cardinals[i].sub(cardinals[8]));
         halfMaxHeight = Math.max(halfMaxHeight, d * 0.5);
         // compute tile's min/max
-        cardin3DPlane[i].applyQuaternion(tmp.qRotY);
-        tmp.maxV.max(cardin3DPlane[i]);
-        tmp.minV.min(cardin3DPlane[i]);
+        vec.applyQuaternion(tmp.qRotY);
+        tmp.maxV.max(vec);
+        tmp.minV.min(vec);
+
+        if (i == 5) {
+            point5InPlaneX = vec.x;
+        }
     }
 
-    var halfLength = Math.abs(tmp.maxV.y - tmp.minV.y) * 0.5;
-    var halfWidth = Math.abs(tmp.maxV.x - tmp.minV.x) * 0.5;
+    const halfLength = Math.abs(tmp.maxV.y - tmp.minV.y) * 0.5;
+    const halfWidth = Math.abs(tmp.maxV.x - tmp.minV.x) * 0.5;
 
     const max = new THREE.Vector3(halfLength, halfWidth, halfMaxHeight);
     const min = new THREE.Vector3(-halfLength, -halfWidth, -halfMaxHeight);
 
     // delta is the distance between line `([6],[4])` and the point `[5]`
     // These points [6],[5],[4] aren't aligned because of the ellipsoid shape
-    var delta = halfWidth - Math.abs(cardin3DPlane[5].x);
+    const delta = isEllipsoid ? (halfWidth - Math.abs(point5InPlaneX)) : 0;
     tmp.translate.set(0, delta, -halfMaxHeight);
 
-    var obb = new OBB(min, max, tmp.normal, tmp.translate);
+    const obb = new OBB(min, max, tmp.normal, tmp.translate);
 
     // for 3D
     if (minHeight !== 0 || maxHeight !== 0) {
