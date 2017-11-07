@@ -175,14 +175,23 @@ OBB.extentToOBB = function extentToOBB(extent, minHeight = 0, maxHeight = 0) {
 
     const cardinalsXYZ = [];
     const centersLongitude = tmp.cardinals[8].longitude(UNIT.RADIAN);
-    for (var i = 0; i < tmp.cardinals.length; i++) {
-        cardinalsXYZ.push(tmp.cardinals[i].as('EPSG:4978').xyz());
+    for (const cardinal of tmp.cardinals) {
+        cardinalsXYZ.push(cardinal.as('EPSG:4978').xyz());
     }
 
     return this.cardinalsXYZToOBB(cardinalsXYZ, centersLongitude, true, minHeight, maxHeight);
 };
 
-OBB.cardinalsXYZToOBB = function cardinalsXYZToOBB(cardinals, centerPhi, isEllipsoid, minHeight = 0, maxHeight = 0) {
+/**
+ * Computes the OBB of a portion of a ellipsoid.
+ * @param {Vector3[]} cardinals - 8 cardinals of the portion + the center.
+ * @param {number} centerLongitude - the longitude at the center of the portion
+ * @param {boolean} isEllipsoid - should be true when computing for the globe, false otherwise
+ * @param {number} minHeight
+ * @param {number} maxHeight
+ * @return {OBB}
+ */
+OBB.cardinalsXYZToOBB = function cardinalsXYZToOBB(cardinals, centerLongitude, isEllipsoid, minHeight = 0, maxHeight = 0) {
     tmp.maxV.set(-1000, -1000, -1000);
     tmp.minV.set(1000, 1000, 1000);
 
@@ -192,7 +201,7 @@ OBB.cardinalsXYZToOBB = function cardinalsXYZToOBB(cardinals, centerPhi, isEllip
 
     tmp.planeZ.setFromUnitVectors(tmp.normal, tmp.zUp);
     tmp.qRotY.setFromAxisAngle(
-        new THREE.Vector3(0, 0, 1), -centerPhi);
+        new THREE.Vector3(0, 0, 1), -centerLongitude);
     tmp.qRotY.multiply(tmp.planeZ);
 
     let point5InPlaneX;
