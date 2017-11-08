@@ -42,9 +42,11 @@ function loadOrientedImageData(oiInfo, layer, camera) {
     var promises = [];
     for (const sensor of layer.sensors) {
         var url = format(layer.images, { imageId: oiInfo.id, sensorId: sensor.id });
-        promises.push(Fetcher.texture(url, layer.networkOptions));
+        const { texture, promise } = Fetcher.texture(url, layer.networkOptions);
+        promise.then(() => texture);
+        promises.push(promise);
     }
-    return Promise.all(promises).then((res) => { updateMaterial(res, oiInfo, layer, camera); });
+    return Promise.all(promises).then(res => updateMaterial(res, oiInfo, layer, camera));
 }
 
 function getMatrix4FromRotation(Rot) {
@@ -140,10 +142,9 @@ function updateMatrixMaterial(oiInfo, layer, camera) {
 // }
 
 function updateMaterial(textures, oiInfo, layer, camera) {
-// function updateMaterial(textures, oiInfo, layer) {
-    for (var i = 0; i < textures.length; ++i) {
+    for (let i = 0; i < textures.length; ++i) {
         var oldTexture = layer.shaderMat.uniforms.texture.value[i];
-        layer.shaderMat.uniforms.texture.value[i] = textures[i].texture;
+        layer.shaderMat.uniforms.texture.value[i] = textures[i];
         if (oldTexture) oldTexture.dispose();
     }
     layer.mWorldToLocal = getTransfoGeoCentriqueToLocal(oiInfo.coordinates);
