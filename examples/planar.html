@@ -20,6 +20,8 @@
                 padding: 0;
             }
 
+            #menuDiv {position: absolute; top:0px; margin-left: 0px;}
+
             #help {
                 position: absolute;
                 z-index: 0;
@@ -54,9 +56,10 @@
         <meta charset="UTF-8">
 
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <script src="GUI/dat.gui/dat.gui.min.js"></script>
     </head>
     <body>
-        <div id="help">
+        <!-- <div id="help">
             <p>Key bindings</p>
             <ul>
               <li>Left-Click: camera translation (drag)</li>
@@ -67,13 +70,23 @@
               <li>T: orient camera to a top view</li>
               <li>Y: move camera to start position</li>
             </ul>
-        </div>
+        </div> -->
         <div id="viewerDiv"></div>
         <script src="../dist/itowns.js"></script>
+        <script src="../dist/debug.js"></script>
+        <script src="GUI/GuiTools.js"></script>
         <script type="text/javascript">
             var renderer; var exports = {};
             var proj4 = itowns.proj4;
         </script>
         <script src="planar.js"></script>
+        <script type="text/javascript">
+            console.log(view);
+            var menuGlobe = new GuiTools('menuDiv', view);
+            menuGlobe.view = view;
+            menuGlobe.addImageryLayersGUI(view.getLayers(function (l) { return l.type === 'color'; }));
+            const d = new debug.Debug(view, menuGlobe.gui);
+            debug.createTileDebugUI(menuGlobe.gui, view, view.tileLayer, d);
+        </script>
     </body>
 </html>
