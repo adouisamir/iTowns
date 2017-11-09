@@ -4,15 +4,6 @@
  * and open the template in the editor.
  */
 
-/*
- * A Faire
- * Les tuiles de longitude identique ont le maillage et ne demande pas 1 seule calcul pour la génération du maillage
- *
- *
- *
- *
- */
-
 import Provider from './Provider';
 import TileGeometry from '../../TileGeometry';
 import TileMesh from '../../TileMesh';
@@ -21,6 +12,7 @@ import { requestNewTile } from '../../../Process/TiledNodeProcessing';
 
 function TileProvider() {
     Provider.call(this, null);
+    this.cacheGeometry = [];
 }
 
 TileProvider.prototype = Object.create(Provider.prototype);
@@ -49,50 +41,87 @@ TileProvider.prototype.preprocessDataLayer = function preprocessLayer(layer, vie
     });
 };
 
+function defer() {
+    const deferedPromise = {};
+    deferedPromise.promise = new Promise((resolve, reject) => {
+        deferedPromise.resolve = resolve;
+        deferedPromise.reject = reject;
+    });
+    return deferedPromise;
+}
+
 TileProvider.prototype.executeCommand = function executeCommand(command) {
-    var extent = command.extent;
+    const extent = command.extent;
     if (command.requester &&
         !command.requester.material) {
         // request has been deleted
         return Promise.reject(new CancelledCommandException(command));
     }
 
-    var parent = command.requester;
+    const parent = command.requester;
+    const level = (command.level === undefined) ? (parent.level + 1) : command.level;
 
-
-    // build tile
-    var params = {
-        layerId: command.layer.id,
-        extent,
-        level: (command.level === undefined) ? (parent.level + 1) : command.level,
-        segment: 16,
-        materialOptions: command.layer.materialOptions,
-        disableSkirt: command.layer.disableSkirt,
-    };
-
-    const geometry = new TileGeometry(params, command.layer.builder);
-
-    var tile = new TileMesh(geometry, params);
-
-    tile.layer = command.layer.id;
-    tile.layers.set(command.threejsLayer);
-
-    if (parent) {
-        params.center.sub(parent.geometry.center);
+    if (!this.cacheGeometry[level]) {
+        this.cacheGeometry[level] = [];
     }
 
-    tile.position.copy(params.center);
-    tile.material.transparent = command.layer.opacity < 1.0;
-    tile.material.uniforms.opacity.value = command.layer.opacity;
-    tile.setVisibility(false);
-    tile.updateMatrix();
-    if (parent) {
-        tile.setBBoxZ(parent.OBB().z.min, parent.OBB().z.max);
-    } else if (command.layer.materialOptions && command.layer.materialOptions.useColorTextureElevation) {
-        tile.setBBoxZ(command.layer.materialOptions.colorTextureElevationMinZ, command.layer.materialOptions.colorTextureElevationMaxZ);
+    const ce = command.layer.getCommonGeometryExtent(extent);
+
+    if (!this.cacheGeometry[level][ce.west()]) {
+        this.cacheGeometry[level][ce.west()] = [];
     }
 
-    return Promise.resolve(tile);
+    // build geometry if doesn't exist
+    if (!this.cacheGeometry[level][ce.west()][ce.south()]) {
+        this.cacheGeometry[level][ce.west()][ce.south()] = defer();
+        const paramsGeometry = {
+            extent: ce,
+            level,
+            segment: 16,
+            disableSkirt: command.layer.disableSkirt,
+        };
+        this.cacheGeometry[level][ce.west()][ce.south()].resolve(new TileGeometry(paramsGeometry, command.layer.builder));
+    }
+
+    // get geometry from cache
+    return this.cacheGeometry[level][ce.west()][ce.south()].promise.then((geometry) => {
+        // build tile
+        var params = {
+            layerId: command.layer.id,
+            extent,
+            level,
+            materialOptions: command.layer.materialOptions,
+        };
+
+        command.layer.builder.Center(params);
+        var tile = new TileMesh(geometry, params);
+        tile.layer = command.layer.id;
+        tile.layers.set(command.threejsLayer);
+
+        if (parent) {
+            parent.worldToLocal(params.center);
+        }
+        tile.position.copy(params.center);
+
+        if (command.layer.getQuaternionTile) {
+            tile.quaternion.copy(command.layer.getQuaternionTile(tile, parent));
+            if (parent) {
+                tile.quaternion.premultiply(parent.invWorldQuaternion);
+            }
+        }
+
+        tile.material.transparent = command.layer.opacity < 1.0;
+        tile.material.uniforms.opacity.value = command.layer.opacity;
+        tile.setVisibility(false);
+        tile.updateMatrix();
+        if (parent) {
+            tile.setBBoxZ(parent.OBB().z.min, parent.OBB().z.max);
+        } else if (command.layer.materialOptions && command.layer.materialOptions.useColorTextureElevation) {
+            tile.setBBoxZ(command.layer.materialOptions.colorTextureElevationMinZ, command.layer.materialOptions.colorTextureElevationMaxZ);
+        }
+
+        return Promise.resolve(tile);
+    });
 };
 
 export default TileProvider;

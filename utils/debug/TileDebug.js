@@ -1,3 +1,4 @@
+import * as THREE from 'three';
 import OBBHelper from './OBBHelper';
 import TileObjectChart from './charts/TileObjectChart';
 import TileVisibilityChart from './charts/TileVisibilityChart';
@@ -136,6 +137,72 @@ export default function createTileDebugUI(datDebugTool, view, layer, debugInstan
         }
     };
 
+    const sb_layer_id = `${layer.id}_sb_debug`;
+    const geometry = new THREE.SphereGeometry(1, 16, 16);
+
+    const debugBoundingSphere = function debugBoundingSphere(context, layer, node) {
+        const enabled = context.camera.camera3D.layers.test({ mask: 1 << layer.threejsLayer });
+
+        if (!node.parent || !enabled) {
+            ObjectRemovalHelper.removeChildrenAndCleanupRecursively(layer.id, node);
+            return;
+        }
+
+        if (!enabled) {
+            return;
+        }
+        var obbChildren = node.children.filter(n => n.layer == sb_layer_id);
+
+        if (node.material && node.material.visible) {
+            let helper;
+            if (obbChildren.length == 0) {
+                const color = new THREE.Color(Math.random(), Math.random(), Math.random());
+                const material = new THREE.MeshBasicMaterial({ color: color.getHex(), wireframe: true });
+                helper = new THREE.Mesh(geometry, material);
+                helper.position.copy(node.boundingSphere.center);
+                helper.scale.multiplyScalar(node.boundingSphere.radius);
+                helper.layer = sb_layer_id;
+                // add the ability to hide all the debug obj for one layer at once
+                const l = context.view.getLayers(l => l.id === sb_layer_id)[0];
+                const l3js = l.threejsLayer;
+                helper.layers.set(l3js);
+                node.add(helper);
+                helper.updateMatrixWorld(true);
+
+                // if we don't do that, our OBBHelper will never get removed,
+                // because once a node is invisible, children are not removed
+                // any more
+                // FIXME a proper way of notifying tile deletion to children layers should be implemented
+                node.setDisplayed = function setDisplayed(show) {
+                    this.material.visible = show;
+                    if (!show) {
+                        let i = this.children.length;
+                        while (i--) {
+                            const c = this.children[i];
+                            if (c.layer === sb_layer_id) {
+                                c.material.dispose();
+                                this.children.splice(i, 1);
+                            }
+                        }
+                    }
+                };
+            } else {
+                helper = obbChildren[0];
+            }
+
+            helper.position.copy(node.boundingSphere.center);
+            helper.scale.multiplyScalar(node.boundingSphere.radius);
+        } else {
+            // hide obb children
+            for (const child of node.children.filter(n => n.layer == sb_layer_id)) {
+                if (typeof child.setMaterialVisibility === 'function') {
+                    child.setMaterialVisibility(false);
+                }
+                child.visible = false;
+            }
+        }
+    };
+
     gui.add(layer, 'visible').name('Visible').onChange(() => {
         view.notifyChange(true);
     });
@@ -150,6 +217,17 @@ export default function createTileDebugUI(datDebugTool, view, layer, debugInstan
             visible: false,
         }, layer).then((l) => {
             gui.add(l, 'visible').name('Bounding boxes').onChange(() => {
+                view.notifyChange(true);
+            });
+        });
+    View.prototype.addLayer.call(view,
+        {
+            id: sb_layer_id,
+            type: 'debug',
+            update: debugBoundingSphere,
+            visible: false,
+        }, layer).then((l) => {
+            gui.add(l, 'visible').name('Bounding Spheres').onChange(() => {
                 view.notifyChange(true);
             });
         });

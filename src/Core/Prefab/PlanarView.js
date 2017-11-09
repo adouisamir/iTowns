@@ -7,6 +7,7 @@ import { unpack1K } from '../../Renderer/LayeredMaterial';
 
 import { GeometryLayer } from '../Layer/Layer';
 
+import Extent from '../Geographic/Extent';
 import { processTiledGeometryNode } from '../../Process/TiledNodeProcessing';
 import { updateLayeredMaterialNodeImagery, updateLayeredMaterialNodeElevation } from '../../Process/LayeredMaterialNodeProcessing';
 import { planarCulling, planarSubdivisionControl } from '../../Process/PlanarTileProcessing';
@@ -112,6 +113,12 @@ export function createPlanarLayer(id, extent, options) {
     tileLayer.lighting = {
         enable: false,
         position: { x: -0.5, y: 0.0, z: 1.0 },
+    };
+
+    tileLayer.getCommonGeometryExtent = (extent) => {
+        const communExtent = new Extent(extent.crs(), 0, Math.abs(extent.west() - extent.east()), 0, Math.abs(extent.north() - extent.south()));
+        communExtent._internalStorageUnit = extent._internalStorageUnit;
+        return communExtent;
     };
 
     return tileLayer;

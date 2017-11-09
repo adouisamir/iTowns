@@ -33,6 +33,8 @@ BuilderEllipsoidTile.prototype.Prepare = function Prepare(params) {
 
     params.deltaUV1 = (st1 - start) * params.nbRow;
 
+    params.quaternion = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), -(Math.PI * 0.5 - params.extent.center().latitude()));
+
     // let's avoid building too much temp objects
     params.projected = { longitudeRad: 0, latitudeRad: 0 };
 };
@@ -80,8 +82,8 @@ BuilderEllipsoidTile.prototype.getUV_PM = function getUV_PM(params) {
 };
 
 // use for region for adaptation boundingVolume
-BuilderEllipsoidTile.prototype.OBB = function OBBFn(params) {
-    return OBB.extentToOBB(params.extent);
+BuilderEllipsoidTile.prototype.OBB = function OBBFn(params, boundingBox) {
+    return new OBB(boundingBox.min, boundingBox.max);
 };
 
 export default BuilderEllipsoidTile;

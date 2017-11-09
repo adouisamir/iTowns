@@ -13,6 +13,7 @@ import Atmosphere from './Globe/Atmosphere';
 import CoordStars from '../Geographic/CoordStars';
 
 import { C, ellipsoidSizes } from '../Geographic/Coordinates';
+import Extent from '../Geographic/Extent';
 import { processTiledGeometryNode } from '../../Process/TiledNodeProcessing';
 import { updateLayeredMaterialNodeImagery, updateLayeredMaterialNodeElevation } from '../../Process/LayeredMaterialNodeProcessing';
 import { globeCulling, preGlobeUpdate, globeSubdivisionControl, globeSchemeTileWMTS, globeSchemeTile1 } from '../../Process/GlobeTileProcessing';
@@ -162,6 +163,25 @@ export function createGlobeLayer(id, options) {
         }
         return false;
     }
+
+    wgs84TileLayer.getCommonGeometryExtent = (extent) => {
+        const sizeLatitude = Math.abs(extent.west() - extent.east()) / 2;
+        const communExtent = new Extent(extent.crs(), -sizeLatitude, sizeLatitude, extent.south(), extent.north());
+        communExtent._internalStorageUnit = extent._internalStorageUnit;
+        return communExtent;
+    };
+
+    const axisZ = new THREE.Vector3(0, 0, 1);
+    const axisY = new THREE.Vector3(0, 1, 0);
+    const quatLongitude = new THREE.Quaternion();
+    const quatLatitude = new THREE.Quaternion();
+    wgs84TileLayer.getQuaternionTile = (tile) => {
+        const rotLon = tile.extent.west() - tile.geometry.extent.west();
+        const rotLat = Math.PI * 0.5 - tile.extent.center().latitude();
+        quatLongitude.setFromAxisAngle(axisZ, rotLon);
+        quatLatitude.setFromAxisAngle(axisY, rotLat);
+        return quatLongitude.multiply(quatLatitude);
+    };
 
     wgs84TileLayer.update = processTiledGeometryNode(globeCulling(2), subdivision);
     wgs84TileLayer.builder = new BuilderEllipsoidTile();

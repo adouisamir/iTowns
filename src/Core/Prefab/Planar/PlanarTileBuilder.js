@@ -50,19 +50,8 @@ PlanarTileBuilder.prototype.vProjecte = function vProjecte(v, params)
 };
 
 // get oriented bounding box of tile
-PlanarTileBuilder.prototype.OBB = function _OBB(params) {
-    const center = params.center;
-    const max = new THREE.Vector3(
-        params.extent.east(),
-        params.extent.north(),
-        0).sub(center);
-    const min = new THREE.Vector3(
-        params.extent.west(),
-        params.extent.south(),
-        0).sub(center);
-    const translate = new THREE.Vector3(0, 0, 0);
-    // normal is up vector
-    return new OBB(min, max, undefined, translate);
+PlanarTileBuilder.prototype.OBB = function OBBFn(params, boundingBox) {
+    return new OBB(boundingBox.min, boundingBox.max);
 };
 
 export default PlanarTileBuilder;

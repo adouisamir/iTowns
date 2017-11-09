@@ -33,7 +33,7 @@ function TileGeometry(params, builder) {
     THREE.BufferGeometry.call(this);
 
     this.center = builder.Center(params).clone();
-    this.OBB = builder.OBB(params);
+    this.extent = params.extent;
 
     const bufferAttribs = this.computeBuffers(params, builder);
 
@@ -43,8 +43,8 @@ function TileGeometry(params, builder) {
     this.addAttribute('uv_wgs84', bufferAttribs.uv.wgs84);
     this.addAttribute('uv_pm', bufferAttribs.uv.pm);
 
-    // ---> for SSE
-    this.computeBoundingSphere();
+    this.computeBoundingBox();
+    this.OBB = builder.OBB(params, this.boundingBox);
 }
 
 
@@ -127,19 +127,26 @@ TileGeometry.prototype.computeBuffers = function computeBuffers(params, builder)
 
             builder.uProjecte(u, params);
 
-            var vertex = builder.VertexPosition(params, params.projected);
+            const vertex = builder.VertexPosition(params, params.projected);
+
+            vertex.sub(this.center);
+
+            if (params.quaternion) {
+                vertex.applyQuaternion(params.quaternion);
+            }
 
             const id_m3 = idVertex * 3;
 
-            outBuffers.position.array[id_m3 + 0] = vertex.x - this.center.x;
-            outBuffers.position.array[id_m3 + 1] = vertex.y - this.center.y;
-            outBuffers.position.array[id_m3 + 2] = vertex.z - this.center.z;
+            vertex.toArray(outBuffers.position.array, id_m3);
 
-            var normal = builder.VertexNormal(params);
+            // TODO compute the right normal
+            const normal = builder.VertexNormal(params);
 
-            outBuffers.normal.array[id_m3 + 0] = normal.x;
-            outBuffers.normal.array[id_m3 + 1] = normal.y;
-            outBuffers.normal.array[id_m3 + 2] = normal.z;
+            if (params.quaternion) {
+                normal.applyQuaternion(params.quaternion);
+            }
+
+            normal.toArray(outBuffers.normal.array, id_m3);
 
             UV_WGS84(outBuffers, idVertex, u, v);
             UV_PM(outBuffers, idVertex, uv_pm);
